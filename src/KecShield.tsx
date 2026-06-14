@@ -135,7 +135,7 @@ const KecShield = () => {
     const saved = localStorage.getItem('kec_incidents');
     return saved ? JSON.parse(saved) : [];
   });
-  const [crews, setCrews] = useState<string[]>(() => {
+  const [crews] = useState<string[]>(() => {
     const saved = localStorage.getItem('kec_crews');
     return saved ? JSON.parse(saved) : ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
   });
@@ -164,8 +164,6 @@ const KecShield = () => {
   useEffect(() => {
     localStorage.setItem('kec_crews', JSON.stringify(crews));
   }, [crews]);
-
-  void setCrews;
 
   const addIncident = () => {
     if (!newIncident.employee || !newIncident.description) {
