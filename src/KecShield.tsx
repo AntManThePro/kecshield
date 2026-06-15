@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Plus, X, Download, AlertCircle, CheckCircle2, Clock, User, FileText, Upload, Eye, EyeOff, Trash2, Menu, Home, Settings, BarChart3 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { ChevronDown, Plus, X, Download, AlertCircle, CheckCircle2, FileText, Upload, Trash2, Home } from 'lucide-react';
 
 const NEXUS = {
   green: '#00ff87',
@@ -9,9 +9,19 @@ const NEXUS = {
   dark: '#0a0e27',
   darker: '#050812',
   grid: 'rgba(0, 255, 135, 0.05)'
+} as const;
+
+type CategoryKey = 'attendance' | 'insubordination' | 'safety' | 'jobAbandon' | 'policy' | 'dishonesty' | 'harassment' | 'drug' | 'performance' | 'voluntary';
+
+type Category = {
+  name: string;
+  risk: string;
+  docs: string[];
+  color: string;
+  examples: string[];
 };
 
-const TWC_CATEGORIES = {
+const TWC_CATEGORIES: Record<CategoryKey, Category> = {
   attendance: {
     name: 'Attendance Violations',
     risk: 'HIGH',
@@ -90,12 +100,22 @@ const KecShield = () => {
     const saved = localStorage.getItem('kec_incidents');
     return saved ? JSON.parse(saved) : [];
   });
-  const [crews, setCrews] = useState(() => {
+  const [crews] = useState(() => {
     const saved = localStorage.getItem('kec_crews');
     return saved ? JSON.parse(saved) : ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
   });
 
-  const [newIncident, setNewIncident] = useState({
+  const [newIncident, setNewIncident] = useState<{
+    date: string;
+    time: string;
+    category: string;
+    crew: string;
+    employee: string;
+    description: string;
+    witnesses: string;
+    evidence: any[];
+    docStatus: Record<string, any>;
+  }>({
     date: new Date().toISOString().split('T')[0],
     time: new Date().toTimeString().slice(0, 5),
     category: 'attendance',
@@ -107,18 +127,14 @@ const KecShield = () => {
     docStatus: {}
   });
 
-  const [expandedIncident, setExpandedIncident] = useState(null);
+  const [expandedIncident, setExpandedIncident] = useState<number | null>(null);
   const [showLogger, setShowLogger] = useState(false);
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Save to localStorage
   useEffect(() => {
     localStorage.setItem('kec_incidents', JSON.stringify(incidents));
   }, [incidents]);
-
-  useEffect(() => {
-    localStorage.setItem('kec_crews', JSON.stringify(crews));
-  }, [crews]);
 
   const addIncident = () => {
     if (!newIncident.employee || !newIncident.description) {
@@ -131,7 +147,7 @@ const KecShield = () => {
       ...newIncident,
       timestamp: new Date(`${newIncident.date}T${newIncident.time}`).toISOString(),
       docStatus: Object.fromEntries(
-        TWC_CATEGORIES[newIncident.category].docs.map(d => [d, false])
+        TWC_CATEGORIES[newIncident.category as CategoryKey].docs.map((d: string) => [d, false])
       )
     };
 
@@ -150,33 +166,33 @@ const KecShield = () => {
     setShowLogger(false);
   };
 
-  const deleteIncident = (id) => {
+  const deleteIncident = (id: number) => {
     if (confirm('Delete incident? This cannot be undone.')) {
-      setIncidents(incidents.filter(i => i.id !== id));
+      setIncidents(incidents.filter((i: any) => i.id !== id));
       setExpandedIncident(null);
     }
   };
 
-  const updateDocStatus = (incidentId, doc, status) => {
-    setIncidents(incidents.map(i =>
+  const updateDocStatus = (incidentId: number, doc: string, status: boolean) => {
+    setIncidents(incidents.map((i: any) =>
       i.id === incidentId
         ? { ...i, docStatus: { ...i.docStatus, [doc]: status } }
         : i
     ));
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (evt) => {
+      reader.onload = (evt: ProgressEvent<FileReader>) => {
         setNewIncident({
           ...newIncident,
           evidence: [...newIncident.evidence, {
             name: file.name,
             type: file.type,
             size: file.size,
-            data: evt.target.result,
+            data: evt.target?.result || null,
             timestamp: new Date().toISOString()
           }]
         });
@@ -186,8 +202,8 @@ const KecShield = () => {
   };
 
   const generateTWCReport = () => {
-    const report = incidents.map(inc => {
-      const cat = TWC_CATEGORIES[inc.category];
+    const report = incidents.map((inc: any) => {
+      const cat = TWC_CATEGORIES[inc.category as CategoryKey];
       const docsCollected = Object.values(inc.docStatus).filter(Boolean).length;
       const docsRequired = cat.docs.length;
       return `
@@ -213,19 +229,19 @@ Evidence Files: ${inc.evidence.length}
   const Dashboard = () => {
     const stats = {
       total: incidents.length,
-      critical: incidents.filter(i => TWC_CATEGORIES[i.category].risk === 'CRITICAL').length,
-      thisWeek: incidents.filter(i => {
+      critical: incidents.filter((i: any) => TWC_CATEGORIES[i.category as CategoryKey].risk === 'CRITICAL').length,
+      thisWeek: incidents.filter((i: any) => {
         const d = new Date(i.date);
         const today = new Date();
-        return (today - d) / (1000 * 60 * 60 * 24) <= 7;
+        return (today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24) <= 7;
       }).length,
-      documented: incidents.filter(i => Object.values(i.docStatus).some(Boolean)).length
+      documented: incidents.filter((i: any) => Object.values(i.docStatus).some(Boolean)).length
     };
 
     const byCategory = Object.fromEntries(
-      Object.entries(TWC_CATEGORIES).map(([key, val]) => [
+      Object.entries(TWC_CATEGORIES).map(([key]) => [
         key,
-        incidents.filter(i => i.category === key).length
+        incidents.filter((i: any) => i.category === key).length
       ])
     );
 
@@ -274,19 +290,19 @@ Evidence Files: ${inc.evidence.length}
             {Object.entries(byCategory).map(([key, count]) => (
               <div key={key} className="flex items-center justify-between text-sm">
                 <span style={{ color: NEXUS.cyan }} className="font-mono">
-                  {TWC_CATEGORIES[key].name}
+                  {TWC_CATEGORIES[key as CategoryKey].name}
                 </span>
                 <div className="flex items-center gap-2">
                   <div className="w-32 h-2 rounded-full" style={{ backgroundColor: `${NEXUS.cyan}20` }}>
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
-                        width: `${Math.min(count * 20, 100)}%`,
-                        backgroundColor: TWC_CATEGORIES[key].color
+                        width: `${Math.min((count as number) * 20, 100)}%`,
+                        backgroundColor: TWC_CATEGORIES[key as CategoryKey].color
                       }}
                     />
                   </div>
-                  <span style={{ color: TWC_CATEGORIES[key].color }} className="font-bold w-4">
+                  <span style={{ color: TWC_CATEGORIES[key as CategoryKey].color }} className="font-bold w-4">
                     {count}
                   </span>
                 </div>
@@ -301,21 +317,21 @@ Evidence Files: ${inc.evidence.length}
             RECENT INCIDENTS
           </h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {incidents.slice(0, 10).map(inc => (
+            {incidents.slice(0, 10).map((inc: any) => (
               <div
                 key={inc.id}
                 onClick={() => setExpandedIncident(inc.id)}
                 className="p-3 rounded cursor-pointer border transition-all hover:shadow-lg"
                 style={{
-                  borderColor: TWC_CATEGORIES[inc.category].color,
-                  backgroundColor: `${TWC_CATEGORIES[inc.category].color}08`,
+                  borderColor: TWC_CATEGORIES[inc.category as CategoryKey].color,
+                  backgroundColor: `${TWC_CATEGORIES[inc.category as CategoryKey].color}08`,
                   cursor: 'pointer'
                 }}
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <div style={{ color: TWC_CATEGORIES[inc.category].color }} className="font-bold text-sm">
-                      {TWC_CATEGORIES[inc.category].name}
+                    <div style={{ color: TWC_CATEGORIES[inc.category as CategoryKey].color }} className="font-bold text-sm">
+                      {TWC_CATEGORIES[inc.category as CategoryKey].name}
                     </div>
                     <div style={{ color: NEXUS.cyan }} className="text-xs font-mono mt-1">
                       {inc.employee} • {inc.date} • {inc.crew}
@@ -325,7 +341,7 @@ Evidence Files: ${inc.evidence.length}
                     style={{ color: NEXUS.yellow }}
                     className="text-xs font-mono font-bold px-2 py-1 rounded"
                   >
-                    {TWC_CATEGORIES[inc.category].risk}
+                    {TWC_CATEGORIES[inc.category as CategoryKey].risk}
                   </div>
                 </div>
               </div>
@@ -351,7 +367,7 @@ Evidence Files: ${inc.evidence.length}
 
   // Incident Logger
   const IncidentLogger = () => {
-    const category = TWC_CATEGORIES[newIncident.category];
+    const category = TWC_CATEGORIES[newIncident.category as CategoryKey] as Category;
 
     return (
       <div className="space-y-6">
@@ -375,7 +391,7 @@ Evidence Files: ${inc.evidence.length}
                 color: NEXUS.cyan
               }}
             >
-              {Object.entries(TWC_CATEGORIES).map(([key, val]) => (
+              {Object.entries(TWC_CATEGORIES).map(([key, val]: [string, Category]) => (
                 <option key={key} value={key}>
                   {val.name}
                 </option>
@@ -397,7 +413,7 @@ Evidence Files: ${inc.evidence.length}
                 color: NEXUS.cyan
               }}
             >
-              {crews.map(c => (
+              {crews.map((c: string) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -523,7 +539,7 @@ Evidence Files: ${inc.evidence.length}
 
           {newIncident.evidence.length > 0 && (
             <div className="mt-3 space-y-2">
-              {newIncident.evidence.map((file, i) => (
+              {newIncident.evidence.map((file: any, i: number) => (
                 <div
                   key={i}
                   className="p-2 rounded flex items-center justify-between text-sm"
@@ -538,7 +554,7 @@ Evidence Files: ${inc.evidence.length}
                   <button
                     onClick={() => setNewIncident({
                       ...newIncident,
-                      evidence: newIncident.evidence.filter((_, j) => j !== i)
+                      evidence: newIncident.evidence.filter((_: any, j: number) => j !== i)
                     })}
                     className="hover:opacity-70"
                   >
@@ -554,16 +570,16 @@ Evidence Files: ${inc.evidence.length}
         <div
           className="p-4 rounded-lg border"
           style={{
-            borderColor: category.color,
-            backgroundColor: `${category.color}08`
+            borderColor: (category as Category).color,
+            backgroundColor: `${(category as Category).color}08`
           }}
         >
-          <div style={{ color: category.color }} className="font-mono font-bold text-sm mb-2">
-            {category.name.toUpperCase()} — Risk Level: {category.risk}
+          <div style={{ color: (category as Category).color }} className="font-mono font-bold text-sm mb-2">
+            {(category as Category).name.toUpperCase()} — Risk Level: {(category as Category).risk}
           </div>
           <div style={{ color: NEXUS.cyan }} className="text-xs space-y-1 mb-3">
             <div className="font-bold">Documentation Required:</div>
-            {category.docs.map((doc, i) => (
+            {(category as Category).docs.map((doc: string, i: number) => (
               <div key={i} className="flex items-center gap-2 ml-2">
                 <span>•</span>
                 <span>{doc}</span>
@@ -572,7 +588,7 @@ Evidence Files: ${inc.evidence.length}
           </div>
           <div style={{ color: NEXUS.yellow }} className="text-xs space-y-1">
             <div className="font-bold">Common Examples:</div>
-            {category.examples.map((ex, i) => (
+            {(category as Category).examples.map((ex: string, i: number) => (
               <div key={i} className="flex items-center gap-2 ml-2">
                 <span>•</span>
                 <span>{ex}</span>
@@ -612,10 +628,10 @@ Evidence Files: ${inc.evidence.length}
 
   // Incident Details View
   const IncidentDetailsView = () => {
-    const incident = incidents.find(i => i.id === expandedIncident);
+    const incident = incidents.find((i: any) => i.id === expandedIncident);
     if (!incident) return null;
 
-    const category = TWC_CATEGORIES[incident.category];
+    const category = TWC_CATEGORIES[incident.category as CategoryKey] as Category;
 
     return (
       <div className="space-y-6">
@@ -664,8 +680,7 @@ Evidence Files: ${inc.evidence.length}
           <h3 style={{ color: NEXUS.green }} className="font-mono font-bold text-sm mb-2">
             DESCRIPTION
           </h3>
-          <p style={{ color: NEXUS.cyan }} className="text-sm leading-relaxed bg-opacity-30 p-4 rounded border"
-            style={{ borderColor: NEXUS.cyan, backgroundColor: `${NEXUS.cyan}08` }}>
+          <p style={{ borderColor: NEXUS.cyan, backgroundColor: `${NEXUS.cyan}08`, color: NEXUS.cyan }} className="text-sm leading-relaxed bg-opacity-30 p-4 rounded border">
             {incident.description}
           </p>
         </div>
@@ -686,7 +701,7 @@ Evidence Files: ${inc.evidence.length}
             DOCUMENTATION STATUS
           </h3>
           <div className="space-y-2">
-            {category.docs.map((doc, i) => (
+            {(category as Category).docs.map((doc: string, i: number) => (
               <div
                 key={i}
                 className="p-3 rounded flex items-center justify-between border"
@@ -718,7 +733,7 @@ Evidence Files: ${inc.evidence.length}
               EVIDENCE FILES ({incident.evidence.length})
             </h3>
             <div className="space-y-2">
-              {incident.evidence.map((file, i) => (
+              {incident.evidence.map((file: any, i: number) => (
                 <div
                   key={i}
                   className="p-3 rounded flex items-center justify-between text-sm border"
