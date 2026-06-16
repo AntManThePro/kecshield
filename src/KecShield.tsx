@@ -99,7 +99,9 @@ const KecShield = () => {
   const [incidents, setIncidents] = useState(() => {
     try {
       const saved = localStorage.getItem('kec_incidents');
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
     } catch (error) {
       console.warn('Failed to load incidents from localStorage:', error);
       return [];
