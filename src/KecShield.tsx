@@ -97,12 +97,28 @@ const TWC_CATEGORIES: Record<CategoryKey, Category> = {
 const KecShield = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [incidents, setIncidents] = useState(() => {
-    const saved = localStorage.getItem('kec_incidents');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('kec_incidents');
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn('Failed to load incidents from localStorage:', error);
+      return [];
+    }
   });
   const [crews] = useState(() => {
-    const saved = localStorage.getItem('kec_crews');
-    return saved ? JSON.parse(saved) : ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
+    try {
+      const saved = localStorage.getItem('kec_crews');
+      if (!saved) return ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) && parsed.every((c: unknown) => typeof c === 'string')
+        ? parsed
+        : ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
+    } catch (error) {
+      console.warn('Failed to load crews from localStorage:', error);
+      return ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
+    }
   });
 
   const [newIncident, setNewIncident] = useState<{
@@ -222,7 +238,9 @@ Evidence Files: ${inc.evidence.length}
     const element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(report));
     element.setAttribute('download', `TWC_Report_${new Date().toISOString().slice(0, 10)}.txt`);
+    document.body.appendChild(element);
     element.click();
+    document.body.removeChild(element);
   };
 
   // Dashboard
