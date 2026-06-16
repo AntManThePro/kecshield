@@ -110,7 +110,11 @@ const KecShield = () => {
   const [crews] = useState(() => {
     try {
       const saved = localStorage.getItem('kec_crews');
-      return saved ? JSON.parse(saved) : ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
+      if (!saved) return ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) && parsed.every((c: unknown) => typeof c === 'string')
+        ? parsed
+        : ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
     } catch (error) {
       console.warn('Failed to load crews from localStorage:', error);
       return ['Crew A', 'Crew B', 'Crew C', 'Crew D'];
