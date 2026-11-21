@@ -96,17 +96,21 @@ const TWC_CATEGORIES: Record<CategoryKey, Category> = {
 
 const KecShield = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [incidents, setIncidents] = useState(() => {
+  const [initialIncidentLoad] = useState(() => {
     try {
       const saved = localStorage.getItem('kec_incidents');
-      if (!saved) return [];
+      if (!saved) return { incidents: [], failed: false };
       const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : [];
+      return Array.isArray(parsed)
+        ? { incidents: parsed, failed: false }
+        : { incidents: [], failed: true };
     } catch (error) {
       console.warn('Failed to load incidents from localStorage:', error);
-      return [];
+      return { incidents: [], failed: true };
     }
   });
+  const [incidents, setIncidents] = useState(initialIncidentLoad.incidents);
+  const [incidentLoadFailed, setIncidentLoadFailed] = useState(initialIncidentLoad.failed);
   const [crews] = useState(() => {
     try {
       const saved = localStorage.getItem('kec_crews');
@@ -149,8 +153,21 @@ const KecShield = () => {
 
   // Save to localStorage
   useEffect(() => {
+    if (incidentLoadFailed) return;
     localStorage.setItem('kec_incidents', JSON.stringify(incidents));
-  }, [incidents]);
+  }, [incidents, incidentLoadFailed]);
+
+  const resetIncidentStorage = () => {
+    if (!confirm('Discard the unreadable saved incident data and start over? This cannot be undone.')) return;
+
+    try {
+      localStorage.setItem('kec_incidents', '[]');
+      setIncidents([]);
+      setIncidentLoadFailed(false);
+    } catch (error) {
+      console.warn('Failed to reset incidents in localStorage:', error);
+    }
+  };
 
   const addIncident = () => {
     if (!newIncident.employee || !newIncident.description) {
@@ -951,6 +968,22 @@ Evidence Files: ${inc.evidence.length}
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {incidentLoadFailed && (
+          <div
+            role="alert"
+            className="mb-6 p-4 rounded-lg border flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            style={{ borderColor: NEXUS.yellow, backgroundColor: `${NEXUS.yellow}10`, color: NEXUS.yellow }}
+          >
+            <p>Saved incidents could not be read. The stored data is preserved, but changes will not be saved until you reset it.</p>
+            <button
+              onClick={resetIncidentStorage}
+              className="px-3 py-2 rounded font-bold text-xs"
+              style={{ backgroundColor: NEXUS.yellow, color: NEXUS.darker }}
+            >
+              RESET SAVED INCIDENTS
+            </button>
+          </div>
+        )}
         {showLogger ? (
           <IncidentLogger />
         ) : expandedIncident ? (
