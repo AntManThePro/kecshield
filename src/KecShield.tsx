@@ -149,7 +149,11 @@ const KecShield = () => {
 
   // Save to localStorage
   useEffect(() => {
-    localStorage.setItem('kec_incidents', JSON.stringify(incidents));
+    try {
+      localStorage.setItem('kec_incidents', JSON.stringify(incidents));
+    } catch (error) {
+      console.warn('Failed to save incidents to localStorage:', error);
+    }
   }, [incidents]);
 
   const addIncident = () => {
